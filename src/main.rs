@@ -8,45 +8,21 @@ use std::process::{Command};
 use regex::Regex;
 use chrono::{Utc};
 use clap::{ App };
-use rand::{thread_rng, Rng};
-use rand::distributions::Alphanumeric;
-use serde::{ Deserialize, Serialize };
 use tempfile::NamedTempFile;
 
 const METADATA_FILE: &str = ".noter/metadata/metadata.json";
 const DATA_FILE: &str = ".noter/notes/data.json";
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Metadata {
-    hash: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Note {
-    title: String,
-    text: String,
-    date: String,
-    labels: Vec<String>,
-}
-
-fn rand_string() -> String {
-    thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(48)
-        .map(char::from)
-        .collect()
-}
-
 fn init() -> std::io::Result<()> {
-    let home = dirs::home_dir().unwrap();
+    let home = noter::home_path();
     let path = home.join(Path::new(METADATA_FILE));
     if path.exists() {
         return Ok(());
     }
 
-    let metadata = Metadata {
-        hash: rand_string(),
-    };
+    let metadata = noter::Metadata::new (
+        noter::rand_string()
+    );
     let s = serde_json::to_string_pretty(&metadata).unwrap();
 
     create_dir_all(home.join(Path::new("./.noter/metadata")))?;
@@ -58,7 +34,7 @@ fn init() -> std::io::Result<()> {
 }
 
 fn add_note() -> std::io::Result<()> {
-    let home = dirs::home_dir().unwrap();
+    let home = noter::home_path();
     let path = home.join(Path::new(DATA_FILE));
 
     if !path.exists() {
@@ -95,16 +71,16 @@ Labels:").as_bytes())?;
         labels.push(m.get(1).unwrap().as_str().to_owned());
     }
 
-    let note = Note {
-        title: title_re.captures(&content).unwrap().get(1).unwrap().as_str().trim().to_owned(),
-        text: text_re.captures(&content).unwrap().get(1).unwrap().as_str().trim().to_owned(),
-        date: date_re.captures(&content).unwrap().get(1).unwrap().as_str().trim().to_owned(),
-        labels: labels,
-    };
+    let note = noter::Note::new(
+        title_re.captures(&content).unwrap().get(1).unwrap().as_str().trim().to_owned(),
+        text_re.captures(&content).unwrap().get(1).unwrap().as_str().trim().to_owned(),
+        date_re.captures(&content).unwrap().get(1).unwrap().as_str().trim().to_owned(),
+        labels,
+    );
 
     let rf = File::open(path.clone())?;
     let reader = BufReader::new(rf);
-    let mut notes: Vec<Note> = serde_json::from_reader(reader).unwrap();
+    let mut notes: Vec<noter::Note> = serde_json::from_reader(reader).unwrap();
     notes.push(note);
 
     let notes_str = serde_json::to_string_pretty(&notes).unwrap();
@@ -125,28 +101,17 @@ fn main() -> std::io::Result<()> {
 
     if let Some(_) = matches.subcommand_matches("compact") {
         println!("TODO: compact");
-        return Ok(());
-    }
-
-    if let Some(_) = matches.subcommand_matches("edit") {
+    } else if let Some(_) = matches.subcommand_matches("edit") {
         println!("TODO: edit");
-        return Ok(());
-    }
-
-    if let Some(_) = matches.subcommand_matches("init") {
+    } else if let Some(_) = matches.subcommand_matches("init") {
         init()?;
-        return Ok(());
-    }
-
-    if let Some(_) = matches.subcommand_matches("list") {
+    } else if let Some(_) = matches.subcommand_matches("list") {
         println!("TODO: list");
-        return Ok(());
-    }
-
-    if let Some(_) = matches.subcommand_matches("sync") {
+    } else if let Some(_) = matches.subcommand_matches("sync") {
         println!("TODO: sync");
-        return Ok(());
+    } else {
+        add_note()?;
     }
 
-    add_note()
+    Ok(())
 }
