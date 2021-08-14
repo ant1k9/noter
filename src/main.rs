@@ -1,17 +1,55 @@
-use std::path::Path;
+use std::collections::HashSet;
+use std::env;
 use std::fs;
 use std::fs::{ File, create_dir_all };
 use std::io::prelude::*;
-use std::io::BufReader;
-use std::process::{Command};
+use std::path::Path;
+use std::process::Command;
 
-use regex::Regex;
-use chrono::{Utc};
-use clap::{ App };
+use clap::{App, Arg};
 use tempfile::NamedTempFile;
 
 const METADATA_FILE: &str = ".noter/metadata/metadata.json";
 const DATA_FILE: &str = ".noter/notes/data.json";
+
+fn add_note() -> std::io::Result<()> {
+    let path = noter::home_path().join(Path::new(DATA_FILE));
+    if !path.exists() {
+        let mut f = File::create(path.clone())?;
+        f.write_all(b"[]")?;
+    }
+
+    edit_and_save(None)
+}
+
+fn edit() -> std::io::Result<()> {
+    let id: String = env::args().nth(2).unwrap();
+
+    for note in noter::read_notes(DATA_FILE).iter().rev() {
+        if note.get_id() == id {
+            return edit_and_save(Some(note))
+        }
+    }
+
+    Ok(())
+}
+
+fn edit_and_save(opt: Option<&noter::Note>) -> std::io::Result<()> {
+    let mut tmp = NamedTempFile::new()?;
+
+    match opt {
+        Some(note) => noter::show_existed_note(&mut tmp, &note)?,
+        None => noter::initial_note(&mut tmp)?,
+    }
+
+    Command::new("vim")
+        .arg(tmp.path())
+        .status()
+        .expect("editor failed to start");
+
+    let content = fs::read_to_string(tmp.path().clone())?;
+    noter::update_notes_with_content(DATA_FILE, content)
+}
 
 fn init() -> std::io::Result<()> {
     let home = noter::home_path();
@@ -20,9 +58,7 @@ fn init() -> std::io::Result<()> {
         return Ok(());
     }
 
-    let metadata = noter::Metadata::new (
-        noter::rand_string()
-    );
+    let metadata = noter::Metadata::new();
     let s = serde_json::to_string_pretty(&metadata).unwrap();
 
     create_dir_all(home.join(Path::new("./.noter/metadata")))?;
@@ -33,68 +69,38 @@ fn init() -> std::io::Result<()> {
     return Ok(());
 }
 
-fn add_note() -> std::io::Result<()> {
-    let home = noter::home_path();
-    let path = home.join(Path::new(DATA_FILE));
-
-    if !path.exists() {
-        let mut f = File::create(path.clone())?;
-        f.write_all(b"[]")?;
+fn list() -> std::io::Result<()> {
+    let mut n: usize = 100;
+    if env::args().len() > 2 {
+        n = env::args().nth(2).unwrap().parse().unwrap();
     }
 
-    let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let mut listed: HashSet<String> = HashSet::new();
+    for note in noter::read_notes(DATA_FILE).iter().rev() {
+        if n == 0 {
+            break;
+        }
+        if listed.contains(note.get_id()) {
+            continue;
+        }
 
-    let mut tmp = NamedTempFile::new()?;
-    tmp.write_all(("Title:
-
-Text:
-
-Date: ".to_owned() + &now + "
-
-Labels:").as_bytes())?;
-
-    Command::new("vim")
-        .arg(tmp.path())
-        .status()
-        .expect("editor failed to start");
-
-    let content = fs::read_to_string(tmp.path().clone())?;
-
-    let title_re = Regex::new(r"(?m)Title: ?(.*)$").unwrap();
-    let text_re = Regex::new(r"(?ms).*Text: ?(.*)Date:").unwrap();
-    let date_re = Regex::new(r"(?m).*Date: ?(.*)$").unwrap();
-    let labels_re = Regex::new(r"(?m).*Labels: ?.*$").unwrap();
-
-    let labels_str = labels_re.captures(&content).unwrap().get(0).unwrap().as_str();
-    let mut labels: Vec<String> = Vec::new();
-    for m in Regex::new(r"#(\w+)").unwrap().captures_iter(labels_str) {
-        labels.push(m.get(1).unwrap().as_str().to_owned());
+        println!("{}", note.format());
+        listed.insert(note.get_id().to_string());
+        n -= 1;
     }
-
-    let note = noter::Note::new(
-        title_re.captures(&content).unwrap().get(1).unwrap().as_str().trim().to_owned(),
-        text_re.captures(&content).unwrap().get(1).unwrap().as_str().trim().to_owned(),
-        date_re.captures(&content).unwrap().get(1).unwrap().as_str().trim().to_owned(),
-        labels,
-    );
-
-    let rf = File::open(path.clone())?;
-    let reader = BufReader::new(rf);
-    let mut notes: Vec<noter::Note> = serde_json::from_reader(reader).unwrap();
-    notes.push(note);
-
-    let notes_str = serde_json::to_string_pretty(&notes).unwrap();
-    let mut wf = File::create(path)?;
-    wf.write_all(notes_str.as_bytes())?;
 
     Ok(())
 }
 
 fn main() -> std::io::Result<()> {
     let matches = App::new("Noter")
-        .subcommand(App::new("edit"))
+        .subcommand(App::new("edit")
+            .arg(Arg::new("")
+            .takes_value(true)))
         .subcommand(App::new("init"))
-        .subcommand(App::new("list"))
+        .subcommand(App::new("list")
+            .arg(Arg::new("")
+            .takes_value(true)))
         .subcommand(App::new("compact"))
         .subcommand(App::new("sync"))
         .get_matches();
@@ -102,11 +108,11 @@ fn main() -> std::io::Result<()> {
     if let Some(_) = matches.subcommand_matches("compact") {
         println!("TODO: compact");
     } else if let Some(_) = matches.subcommand_matches("edit") {
-        println!("TODO: edit");
+        edit()?;
     } else if let Some(_) = matches.subcommand_matches("init") {
         init()?;
     } else if let Some(_) = matches.subcommand_matches("list") {
-        println!("TODO: list");
+        list()?;
     } else if let Some(_) = matches.subcommand_matches("sync") {
         println!("TODO: sync");
     } else {
