@@ -11,6 +11,7 @@ use tempfile::NamedTempFile;
 
 const METADATA_FILE: &str = ".noter/metadata/metadata.json";
 const DATA_FILE: &str = ".noter/notes/data.json";
+const REMOTE_DATA_FILE: &str = ".noter/notes/remote.data.json";
 
 fn add_note() -> std::io::Result<()> {
     let path = noter::home_path().join(Path::new(DATA_FILE));
@@ -20,6 +21,50 @@ fn add_note() -> std::io::Result<()> {
     }
 
     edit_and_save(None)
+}
+
+fn compact() -> std::io::Result<()> {
+    let notes = noter::read_notes(DATA_FILE);
+    let mut compacted: Vec<noter::Note> = Vec::new();
+
+    for note in notes.iter().rev() {
+        let mut found = false;
+        for selected in compacted.iter().rev() {
+            if note.get_id() == selected.get_id() {
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            compacted.push(note.to_owned());
+        }
+    }
+
+    compacted.reverse();
+    return noter::save_notes(DATA_FILE, compacted);
+}
+
+fn merge() -> std::io::Result<()> {
+    let notes = noter::read_notes(DATA_FILE);
+    let remote_notes = noter::read_notes(REMOTE_DATA_FILE);
+    let mut merged: Vec<noter::Note> = Vec::new();
+
+    let mut i: usize = 0;
+    let mut j: usize = 0;
+    let k = notes.len() + remote_notes.len();
+
+    while i + j < k {
+        if i == notes.len() || (j < remote_notes.len() && remote_notes[j].get_date() < notes[i].get_date()) {
+            merged.push(remote_notes[j].to_owned());
+            j += 1;
+        } else {
+            merged.push(notes[i].to_owned());
+            i += 1;
+        }
+    }
+
+    noter::save_notes(DATA_FILE, merged)?;
+    return compact();
 }
 
 fn edit() -> std::io::Result<()> {
@@ -106,7 +151,7 @@ fn main() -> std::io::Result<()> {
         .get_matches();
 
     if let Some(_) = matches.subcommand_matches("compact") {
-        println!("TODO: compact");
+        compact()?;
     } else if let Some(_) = matches.subcommand_matches("edit") {
         edit()?;
     } else if let Some(_) = matches.subcommand_matches("init") {
@@ -114,7 +159,7 @@ fn main() -> std::io::Result<()> {
     } else if let Some(_) = matches.subcommand_matches("list") {
         list()?;
     } else if let Some(_) = matches.subcommand_matches("sync") {
-        println!("TODO: sync");
+        merge()?;
     } else {
         add_note()?;
     }

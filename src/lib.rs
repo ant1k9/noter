@@ -23,7 +23,7 @@ impl Metadata {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Note {
     id: String,
     title: String,
@@ -34,6 +34,7 @@ pub struct Note {
 
 impl Note {
     pub fn get_id(&self) -> &str { &self.id }
+    pub fn get_date(&self) -> &str { &self.date }
 
     pub fn format(&self) -> String {
         format!(
@@ -105,13 +106,17 @@ pub fn update_notes_with_content(file: &str, content: String) -> std::io::Result
         let mut notes = read_notes(file);
         notes.push(note);
 
-        let path = home_path().join(Path::new(file));
-        let notes_str = serde_json::to_string_pretty(&notes).unwrap();
-        let mut wf = File::create(path.to_owned())?;
-        wf.write_all(notes_str.as_bytes())?;
+        save_notes(file, notes)?;
     }
 
     Ok(())
+}
+
+pub fn save_notes(file: &str, notes: Vec<Note>) -> std::io::Result<()> {
+    let path = home_path().join(Path::new(file));
+    let notes_str = serde_json::to_string_pretty(&notes).unwrap();
+    let mut wf = File::create(path.to_owned())?;
+    return wf.write_all(notes_str.as_bytes());
 }
 
 fn capture_string_by_regex(content: &str, expression: &str, index: usize) -> String {
