@@ -13,6 +13,8 @@ const METADATA_FILE: &str = ".noter/metadata/metadata.json";
 const DATA_FILE: &str = ".noter/notes/data.json";
 const REMOTE_DATA_FILE: &str = ".noter/notes/remote.data.json";
 
+const DEFAULT_LIST_LIMIT: usize = 10;
+
 fn add_note() -> std::io::Result<()> {
     let path = noter::home_path().join(Path::new(DATA_FILE));
     if !path.exists() {
@@ -115,9 +117,9 @@ fn init() -> std::io::Result<()> {
 }
 
 fn list(tag: &str) -> std::io::Result<()> {
-    let mut n: usize = 100;
+    let mut n: usize = DEFAULT_LIST_LIMIT;
     if env::args().len() > 2 {
-        n = env::args().nth(2).unwrap().parse().unwrap_or(100);
+        n = env::args().nth(2).unwrap().parse().unwrap_or(DEFAULT_LIST_LIMIT);
     }
 
     let mut listed: HashSet<String> = HashSet::new();
@@ -153,21 +155,21 @@ fn remove() -> std::io::Result<()> {
 
 fn main() -> std::io::Result<()> {
     let matches = App::new("Noter")
+        .subcommand(App::new("add"))
         .subcommand(App::new("compact"))
         .subcommand(App::new("edit")
             .arg(Arg::new("")
             .takes_value(true)))
         .subcommand(App::new("init"))
-        .subcommand(App::new("list")
-            .arg(Arg::new("")
-            .takes_value(true))
-            .arg(Arg::new("tag")
-            .long("--tag")
-            .takes_value(true)))
         .subcommand(App::new("remove")
             .arg(Arg::new("")
             .takes_value(true)))
         .subcommand(App::new("sync"))
+        .arg(Arg::new("")
+        .takes_value(true))
+        .arg(Arg::new("tag")
+        .long("--tag")
+        .takes_value(true))
         .get_matches();
 
     if let Some(_) = matches.subcommand_matches("compact") {
@@ -176,14 +178,14 @@ fn main() -> std::io::Result<()> {
         edit()?;
     } else if let Some(_) = matches.subcommand_matches("init") {
         init()?;
-    } else if let Some(cmd) = matches.subcommand_matches("list") {
-        list(cmd.value_of("tag").unwrap_or(""))?;
+    } else if let Some(_) = matches.subcommand_matches("add") {
+        add_note()?;
     } else if let Some(_) = matches.subcommand_matches("remove") {
         remove()?;
     } else if let Some(_) = matches.subcommand_matches("sync") {
         merge()?;
     } else {
-        add_note()?;
+        list(matches.value_of("tag").unwrap_or(""))?;
     }
 
     Ok(())
