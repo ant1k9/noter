@@ -35,11 +35,12 @@ pub struct Note {
 impl Note {
     pub fn get_id(&self) -> &str { &self.id }
     pub fn get_date(&self) -> &str { &self.date }
+    pub fn has_tag(&self, tag: &str) -> bool { self.labels.contains(&tag.to_owned()) }
 
     pub fn format(&self) -> String {
         format!(
-            "\x1B[38;5;6m[{}]\x1B[39m \x1B[1m{} ({})\x1B[0m\n\x1B[38;5;2m{}\x1B[39m\n",
-            self.date, self.title, self.id, self.text,
+            "\x1B[38;5;6m[{}]\x1B[39m \x1B[1m{} ({}) \x1B[0m\n\t\x1B[38;5;2m{}\x1B[39m \x1B[38;5;8m#{}\n",
+            self.date, self.title, self.id, self.text, self.labels.join(" #"),
         )
     }
 

@@ -4,6 +4,5 @@
 2. Init folder where to save the data and metadata files ✅
 3. Save all versions of notes to the same file ✅
 4. List all notes ✅
-5. Synchronize through dropbox or other tool and compact records
-6. Add list filters
-7. Create web interface to look through and search
+5. Add remove command ✅
+6. Add list filters ✅

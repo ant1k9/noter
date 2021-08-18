@@ -114,10 +114,10 @@ fn init() -> std::io::Result<()> {
     return Ok(());
 }
 
-fn list() -> std::io::Result<()> {
+fn list(tag: &str) -> std::io::Result<()> {
     let mut n: usize = 100;
     if env::args().len() > 2 {
-        n = env::args().nth(2).unwrap().parse().unwrap();
+        n = env::args().nth(2).unwrap().parse().unwrap_or(100);
     }
 
     let mut listed: HashSet<String> = HashSet::new();
@@ -126,6 +126,9 @@ fn list() -> std::io::Result<()> {
             break;
         }
         if listed.contains(note.get_id()) {
+            continue;
+        }
+        if tag != "" && !note.has_tag(tag) {
             continue;
         }
 
@@ -137,16 +140,33 @@ fn list() -> std::io::Result<()> {
     Ok(())
 }
 
+fn remove() -> std::io::Result<()> {
+    let id: String = env::args().nth(2).unwrap();
+
+    let notes = noter::read_notes(DATA_FILE)
+        .into_iter()
+        .filter(|note| note.get_id() != id )
+        .collect::<Vec<noter::Note>>();
+
+    return noter::save_notes(DATA_FILE, notes);
+}
+
 fn main() -> std::io::Result<()> {
     let matches = App::new("Noter")
+        .subcommand(App::new("compact"))
         .subcommand(App::new("edit")
             .arg(Arg::new("")
             .takes_value(true)))
         .subcommand(App::new("init"))
         .subcommand(App::new("list")
             .arg(Arg::new("")
+            .takes_value(true))
+            .arg(Arg::new("tag")
+            .long("--tag")
             .takes_value(true)))
-        .subcommand(App::new("compact"))
+        .subcommand(App::new("remove")
+            .arg(Arg::new("")
+            .takes_value(true)))
         .subcommand(App::new("sync"))
         .get_matches();
 
@@ -156,8 +176,10 @@ fn main() -> std::io::Result<()> {
         edit()?;
     } else if let Some(_) = matches.subcommand_matches("init") {
         init()?;
-    } else if let Some(_) = matches.subcommand_matches("list") {
-        list()?;
+    } else if let Some(cmd) = matches.subcommand_matches("list") {
+        list(cmd.value_of("tag").unwrap_or(""))?;
+    } else if let Some(_) = matches.subcommand_matches("remove") {
+        remove()?;
     } else if let Some(_) = matches.subcommand_matches("sync") {
         merge()?;
     } else {
