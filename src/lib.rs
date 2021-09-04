@@ -94,7 +94,7 @@ pub fn show_existed_note(tmp: &mut NamedTempFile, note: &Note) -> std::io::Resul
 
 pub fn read_notes(file: &str) -> Vec<Note> {
     let path = home_path().join(Path::new(file));
-    let rf = File::open(path.clone()).unwrap();
+    let rf = File::open(path.to_owned()).unwrap();
     let reader = BufReader::new(rf);
     let notes: Vec<Note> = serde_json::from_reader(reader).unwrap();
     notes

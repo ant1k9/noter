@@ -18,7 +18,7 @@ const DEFAULT_LIST_LIMIT: usize = 10;
 fn add_note() -> std::io::Result<()> {
     let path = noter::home_path().join(Path::new(DATA_FILE));
     if !path.exists() {
-        let mut f = File::create(path.clone())?;
+        let mut f = File::create(path.to_owned())?;
         f.write_all(b"[]")?;
     }
 
@@ -94,7 +94,7 @@ fn edit_and_save(opt: Option<&noter::Note>) -> std::io::Result<()> {
         .status()
         .expect("editor failed to start");
 
-    let content = fs::read_to_string(tmp.path().clone())?;
+    let content = fs::read_to_string(tmp.path().to_owned())?;
     noter::update_notes_with_content(DATA_FILE, content)
 }
 
