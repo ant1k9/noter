@@ -1,13 +1,13 @@
-use std::io::BufReader;
 use std::io::prelude::*;
-use std::path::{ Path, PathBuf };
+use std::io::BufReader;
+use std::path::{Path, PathBuf};
 
 use chrono::Utc;
-use std::fs::File;
-use rand::{ thread_rng, Rng };
 use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 use regex::Regex;
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
+use std::fs::File;
 use tempfile::NamedTempFile;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -33,15 +33,24 @@ pub struct Note {
 }
 
 impl Note {
-    pub fn get_id(&self) -> &str { &self.id }
-    pub fn get_date(&self) -> &str { &self.date }
-    pub fn has_tag(&self, tag: &str) -> bool { self.labels.contains(&tag.to_owned()) }
+    pub fn get_id(&self) -> &str {
+        &self.id
+    }
+    pub fn get_date(&self) -> &str {
+        &self.date
+    }
+    pub fn has_tag(&self, tag: &str) -> bool {
+        self.labels.contains(&tag.to_owned())
+    }
 
-    pub fn format(&self) -> String {
-        format!(
-            "\x1B[38;5;6m[{}]\x1B[39m \x1B[1m{} ({}) \x1B[0m\n\t\x1B[38;5;2m{}\x1B[39m \x1B[38;5;8m#{}\n",
-            self.date, self.title, self.id, self.text, self.labels.join(" #"),
-        )
+    pub fn format(&self, with_colors: bool) -> String {
+        if with_colors {
+            return format!(
+                "\x1B[38;5;6m[{}]\x1B[39m \x1B[1m{} ({}) \x1B[0m\n\t\x1B[38;5;2m{}\x1B[39m \x1B[38;5;8m#{}\n",
+                self.date, self.title, self.id, self.text, self.labels.join(" #"),
+            );
+        }
+        format!("[{}] {}\n  {}\n", self.date, self.title, self.text,)
     }
 
     pub fn new(id: String, title: String, text: String, date: String, labels: Vec<String>) -> Note {
@@ -56,7 +65,8 @@ impl Note {
 
     pub fn new_from_content(content: String) -> Note {
         let labels_str = capture_string_by_regex(&content, r"(?m).*Labels: ?.*$", 0);
-        let labels = Regex::new(r"#(\w+)").unwrap()
+        let labels = Regex::new(r"#(\w+)")
+            .unwrap()
             .captures_iter(&labels_str)
             .map(|m| m.get(1).unwrap().as_str().to_owned())
             .collect::<Vec<String>>();
@@ -77,17 +87,29 @@ pub fn home_path() -> PathBuf {
 
 pub fn initial_note(tmp: &mut NamedTempFile) -> std::io::Result<()> {
     let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    show_existed_note(tmp, &Note::new(
-        rand_string(), "".to_string(), "".to_string(), now, Vec::new()
-    ))
+    show_existed_note(
+        tmp,
+        &Note::new(
+            rand_string(),
+            "".to_string(),
+            "".to_string(),
+            now,
+            Vec::new(),
+        ),
+    )
 }
 
 pub fn show_existed_note(tmp: &mut NamedTempFile, note: &Note) -> std::io::Result<()> {
     tmp.write_all(
         format!(
             "ID: {}\n\n---\n\nTitle: {}\n\nText: {}\n\nDate: {}\n\nLabels: #{}",
-            note.id, note.title, note.text, note.date, note.labels.join(", #"),
-        ).as_bytes()
+            note.id,
+            note.title,
+            note.text,
+            note.date,
+            note.labels.join(", #"),
+        )
+        .as_bytes(),
     )?;
     Ok(())
 }

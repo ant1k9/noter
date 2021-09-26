@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::env;
 use std::fs;
-use std::fs::{ File, create_dir_all };
+use std::fs::{create_dir_all, File};
 use std::io::prelude::*;
 use std::path::Path;
 use std::process::Command;
@@ -56,7 +56,9 @@ fn merge() -> std::io::Result<()> {
     let k = notes.len() + remote_notes.len();
 
     while i + j < k {
-        if i == notes.len() || (j < remote_notes.len() && remote_notes[j].get_date() < notes[i].get_date()) {
+        if i == notes.len()
+            || (j < remote_notes.len() && remote_notes[j].get_date() < notes[i].get_date())
+        {
             merged.push(remote_notes[j].to_owned());
             j += 1;
         } else {
@@ -74,7 +76,7 @@ fn edit() -> std::io::Result<()> {
 
     for note in noter::read_notes(DATA_FILE).iter().rev() {
         if note.get_id() == id {
-            return edit_and_save(Some(note))
+            return edit_and_save(Some(note));
         }
     }
 
@@ -116,10 +118,14 @@ fn init() -> std::io::Result<()> {
     return Ok(());
 }
 
-fn list(tag: &str) -> std::io::Result<()> {
+fn list(tag: &str, with_colors: bool) -> std::io::Result<()> {
     let mut n: usize = DEFAULT_LIST_LIMIT;
     if env::args().len() > 2 {
-        n = env::args().nth(2).unwrap().parse().unwrap_or(DEFAULT_LIST_LIMIT);
+        n = env::args()
+            .nth(2)
+            .unwrap()
+            .parse()
+            .unwrap_or(DEFAULT_LIST_LIMIT);
     }
 
     let mut listed: HashSet<String> = HashSet::new();
@@ -134,7 +140,7 @@ fn list(tag: &str) -> std::io::Result<()> {
             continue;
         }
 
-        println!("{}", note.format());
+        println!("{}", note.format(with_colors));
         listed.insert(note.get_id().to_string());
         n -= 1;
     }
@@ -147,7 +153,7 @@ fn remove() -> std::io::Result<()> {
 
     let notes = noter::read_notes(DATA_FILE)
         .into_iter()
-        .filter(|note| note.get_id() != id )
+        .filter(|note| note.get_id() != id)
         .collect::<Vec<noter::Note>>();
 
     return noter::save_notes(DATA_FILE, notes);
@@ -155,28 +161,32 @@ fn remove() -> std::io::Result<()> {
 
 fn main() -> std::io::Result<()> {
     let matches = App::new("Noter")
-        .subcommand(App::new("add")
-            .about("opens a vim editor to create a new node"))
-        .subcommand(App::new("compact")
-            .about("remove staled versions and edits"))
-        .subcommand(App::new("edit")
-            .about("edit a note (needs a hash as an argument)")
-            .arg(Arg::new("")
-            .takes_value(true)))
-        .subcommand(App::new("init")
-            .about("initialize folders and directories for noter"))
-        .subcommand(App::new("remove")
-            .about("remove a note (needs a hash as an argument)")
-            .arg(Arg::new("")
-            .takes_value(true)))
-        .subcommand(App::new("sync")
-            .about("sync with remote file"))
-        .arg(Arg::new("")
-        .takes_value(true))
-        .arg(Arg::new("tag")
-            .about("filter notes by given tag")
-            .long("--tag")
-            .takes_value(true))
+        .subcommand(App::new("add").about("opens a vim editor to create a new node"))
+        .subcommand(App::new("compact").about("remove staled versions and edits"))
+        .subcommand(
+            App::new("edit")
+                .about("edit a note (needs a hash as an argument)")
+                .arg(Arg::new("").takes_value(true)),
+        )
+        .subcommand(App::new("init").about("initialize folders and directories for noter"))
+        .subcommand(
+            App::new("remove")
+                .about("remove a note (needs a hash as an argument)")
+                .arg(Arg::new("").takes_value(true)),
+        )
+        .subcommand(App::new("sync").about("sync with remote file"))
+        .arg(Arg::new("").takes_value(true))
+        .arg(
+            Arg::new("tag")
+                .about("filter notes by given tag")
+                .long("--tag")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("no-colors")
+                .about("show notes without colorizing")
+                .long("--no-colors"),
+        )
         .get_matches();
 
     if let Some(_) = matches.subcommand_matches("compact") {
@@ -192,7 +202,10 @@ fn main() -> std::io::Result<()> {
     } else if let Some(_) = matches.subcommand_matches("sync") {
         merge()?;
     } else {
-        list(matches.value_of("tag").unwrap_or(""))?;
+        list(
+            matches.value_of("tag").unwrap_or(""),
+            !matches.is_present("no-colors"),
+        )?;
     }
 
     Ok(())
