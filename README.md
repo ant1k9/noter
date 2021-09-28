@@ -1,4 +1,19 @@
-### Roadmap
+### Noter
+
+#### Usage
+
+📝 Noter keeps your notes and allow you to filter them by tags. By default noter uses the Vim editor.
+
+```bash
+$ cargo install --path .
+$ noter --help
+$ noter init        # need to run before start using it
+$ noter             # by default lists all notes
+$ noter --tag test  # filter notes with given tag
+$ noter add         # add new note
+```
+
+#### Roadmap
 
 1. Use predefined markdown format for new notes ✅
 2. Init folder where to save the data and metadata files ✅
