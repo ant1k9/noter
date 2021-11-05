@@ -120,9 +120,9 @@ fn init() -> std::io::Result<()> {
 
 fn list(tag: &str, with_colors: bool) -> std::io::Result<()> {
     let mut n: usize = DEFAULT_LIST_LIMIT;
-    if env::args().len() > 2 {
+    if env::args().len() > 1 {
         n = env::args()
-            .nth(2)
+            .nth(1)
             .unwrap()
             .parse()
             .unwrap_or(DEFAULT_LIST_LIMIT);

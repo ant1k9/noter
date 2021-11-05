@@ -47,7 +47,9 @@ impl Note {
         if with_colors {
             return format!(
                 "\x1B[38;5;6m[{}]\x1B[39m \x1B[1m{} ({}) \x1B[0m\n\t\x1B[38;5;2m{}\x1B[39m \x1B[38;5;8m#{}\n",
-                self.date, self.title, self.id, self.text, self.labels.join(" #"),
+                self.date, self.title, self.id,
+                self.text.replace("\n", "\n\t"),
+                self.labels.join(" #"),
             );
         }
         format!("[{}] {}\n  {}\n", self.date, self.title, self.text,)
@@ -65,7 +67,7 @@ impl Note {
 
     pub fn new_from_content(content: String) -> Note {
         let labels_str = capture_string_by_regex(&content, r"(?m).*Labels: ?.*$", 0);
-        let labels = Regex::new(r"#(\w+)")
+        let labels = Regex::new(r"#([\w-]+)")
             .unwrap()
             .captures_iter(&labels_str)
             .map(|m| m.get(1).unwrap().as_str().to_owned())
