@@ -118,6 +118,21 @@ fn init() -> std::io::Result<()> {
     return Ok(());
 }
 
+fn get_tags() -> std::io::Result<()> {
+    let mut listed: HashSet<String> = HashSet::new();
+    for note in noter::read_notes(DATA_FILE).iter().rev() {
+        for tag in note.get_tags() {
+            if listed.contains(tag) {
+                continue;
+            }
+            println!("{}", tag);
+            listed.insert(tag.to_owned());
+        }
+    }
+
+    Ok(())
+}
+
 fn list(tag: &str, with_colors: bool) -> std::io::Result<()> {
     let mut n: usize = DEFAULT_LIST_LIMIT;
     if env::args().len() > 1 {
@@ -129,20 +144,23 @@ fn list(tag: &str, with_colors: bool) -> std::io::Result<()> {
     }
 
     let mut listed: HashSet<String> = HashSet::new();
+    let mut notes: Vec<String> = Vec::new();
+
     for note in noter::read_notes(DATA_FILE).iter().rev() {
-        if n == 0 {
-            break;
-        }
         if listed.contains(note.get_id()) {
             continue;
         }
         if tag != "" && !note.has_tag(tag) {
             continue;
         }
-
-        println!("{}", note.format(with_colors));
+        notes.push(format!("{}", note.format(with_colors)));
         listed.insert(note.get_id().to_string());
-        n -= 1;
+    }
+
+    notes.sort_by(|a, b| b.cmp(a));
+    n = if n > notes.len() { notes.len() } else { n };
+    for i in 0..n {
+        println!("{}", notes[i]);
     }
 
     Ok(())
@@ -175,6 +193,7 @@ fn main() -> std::io::Result<()> {
                 .arg(Arg::new("").takes_value(true)),
         )
         .subcommand(App::new("sync").about("sync with remote file"))
+        .subcommand(App::new("tags").about("show present tags in notes"))
         .arg(Arg::new("").takes_value(true))
         .arg(
             Arg::new("tag")
@@ -201,6 +220,8 @@ fn main() -> std::io::Result<()> {
         remove()?;
     } else if let Some(_) = matches.subcommand_matches("sync") {
         merge()?;
+    } else if let Some(_) = matches.subcommand_matches("tags") {
+        get_tags()?;
     } else {
         list(
             matches.value_of("tag").unwrap_or(""),

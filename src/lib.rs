@@ -39,6 +39,9 @@ impl Note {
     pub fn get_date(&self) -> &str {
         &self.date
     }
+    pub fn get_tags(&self) -> &Vec<String> {
+        &self.labels
+    }
     pub fn has_tag(&self, tag: &str) -> bool {
         self.labels.contains(&tag.to_owned())
     }
