@@ -18,7 +18,7 @@ const DEFAULT_LIST_LIMIT: usize = 10;
 fn add_note() -> std::io::Result<()> {
     let path = noter::home_path().join(Path::new(DATA_FILE));
     if !path.exists() {
-        let mut f = File::create(path.to_owned())?;
+        let mut f = File::create(path)?;
         f.write_all(b"[]")?;
     }
 
@@ -43,7 +43,7 @@ fn compact() -> std::io::Result<()> {
     }
 
     compacted.reverse();
-    return noter::save_notes(DATA_FILE, compacted);
+    noter::save_notes(DATA_FILE, compacted)
 }
 
 fn merge() -> std::io::Result<()> {
@@ -68,7 +68,7 @@ fn merge() -> std::io::Result<()> {
     }
 
     noter::save_notes(DATA_FILE, merged)?;
-    return compact();
+    compact()
 }
 
 fn edit() -> std::io::Result<()> {
@@ -87,7 +87,7 @@ fn edit_and_save(opt: Option<&noter::Note>) -> std::io::Result<()> {
     let mut tmp = NamedTempFile::new()?;
 
     match opt {
-        Some(note) => noter::show_existed_note(&mut tmp, &note)?,
+        Some(note) => noter::show_existed_note(&mut tmp, note)?,
         None => noter::initial_note(&mut tmp)?,
     }
 
@@ -115,7 +115,7 @@ fn init() -> std::io::Result<()> {
 
     let mut f = File::create(path)?;
     f.write_all(s.as_bytes())?;
-    return Ok(());
+    Ok(())
 }
 
 fn get_tags() -> std::io::Result<()> {
@@ -150,17 +150,16 @@ fn list(tag: &str, with_colors: bool) -> std::io::Result<()> {
         if listed.contains(note.get_id()) {
             continue;
         }
-        if tag != "" && !note.has_tag(tag) {
+        if !tag.is_empty() && !note.has_tag(tag) {
             continue;
         }
-        notes.push(format!("{}", note.format(with_colors)));
+        notes.push(note.format(with_colors).to_string());
         listed.insert(note.get_id().to_string());
     }
 
     notes.sort_by(|a, b| b.cmp(a));
-    n = if n > notes.len() { notes.len() } else { n };
-    for i in 0..n {
-        println!("{}", notes[i]);
+    for note in notes.iter().take(n) {
+        println!("{}", note);
     }
 
     Ok(())
@@ -174,7 +173,7 @@ fn remove() -> std::io::Result<()> {
         .filter(|note| note.get_id() != id)
         .collect::<Vec<noter::Note>>();
 
-    return noter::save_notes(DATA_FILE, notes);
+    noter::save_notes(DATA_FILE, notes)
 }
 
 fn main() -> std::io::Result<()> {
@@ -208,19 +207,19 @@ fn main() -> std::io::Result<()> {
         )
         .get_matches();
 
-    if let Some(_) = matches.subcommand_matches("compact") {
+    if matches.subcommand_matches("compact").is_some() {
         compact()?;
-    } else if let Some(_) = matches.subcommand_matches("edit") {
+    } else if matches.subcommand_matches("edit").is_some() {
         edit()?;
-    } else if let Some(_) = matches.subcommand_matches("init") {
+    } else if matches.subcommand_matches("init").is_some() {
         init()?;
-    } else if let Some(_) = matches.subcommand_matches("add") {
+    } else if matches.subcommand_matches("add").is_some() {
         add_note()?;
-    } else if let Some(_) = matches.subcommand_matches("remove") {
+    } else if matches.subcommand_matches("remove").is_some() {
         remove()?;
-    } else if let Some(_) = matches.subcommand_matches("sync") {
+    } else if matches.subcommand_matches("sync").is_some() {
         merge()?;
-    } else if let Some(_) = matches.subcommand_matches("tags") {
+    } else if matches.subcommand_matches("tags").is_some() {
         get_tags()?;
     } else {
         list(

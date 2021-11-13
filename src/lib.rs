@@ -23,6 +23,12 @@ impl Metadata {
     }
 }
 
+impl Default for Metadata {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Note {
     id: String,
@@ -121,7 +127,7 @@ pub fn show_existed_note(tmp: &mut NamedTempFile, note: &Note) -> std::io::Resul
 
 pub fn read_notes(file: &str) -> Vec<Note> {
     let path = home_path().join(Path::new(file));
-    let rf = File::open(path.to_owned()).unwrap();
+    let rf = File::open(path).unwrap();
     let reader = BufReader::new(rf);
     let notes: Vec<Note> = serde_json::from_reader(reader).unwrap();
     notes
@@ -130,7 +136,7 @@ pub fn read_notes(file: &str) -> Vec<Note> {
 pub fn update_notes_with_content(file: &str, content: String) -> std::io::Result<()> {
     let note = Note::new_from_content(content);
 
-    if note.title != "" && note.text != "" {
+    if !note.title.is_empty() && !note.text.is_empty() {
         let mut notes = read_notes(file);
         notes.push(note);
 
@@ -143,7 +149,7 @@ pub fn update_notes_with_content(file: &str, content: String) -> std::io::Result
 pub fn save_notes(file: &str, notes: Vec<Note>) -> std::io::Result<()> {
     let path = home_path().join(Path::new(file));
     let notes_str = serde_json::to_string_pretty(&notes).unwrap();
-    let mut wf = File::create(path.to_owned())?;
+    let mut wf = File::create(path)?;
     return wf.write_all(notes_str.as_bytes());
 }
 
