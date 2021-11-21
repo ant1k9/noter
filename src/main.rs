@@ -8,6 +8,7 @@ use std::process::Command;
 
 use clap::{App, Arg};
 use tempfile::NamedTempFile;
+use terminal_size::{terminal_size, Height, Width};
 
 const METADATA_FILE: &str = ".noter/metadata/metadata.json";
 const DATA_FILE: &str = ".noter/notes/data.json";
@@ -135,12 +136,18 @@ fn get_tags() -> std::io::Result<()> {
 
 fn list(tag: &str, with_colors: bool) -> std::io::Result<()> {
     let mut n: usize = DEFAULT_LIST_LIMIT;
+    let mut terminal_width: i32 = 100;
+    let mut max_lines: i32 = 10000;
+
     if env::args().len() > 1 {
         n = env::args()
             .nth(1)
             .unwrap()
             .parse()
             .unwrap_or(DEFAULT_LIST_LIMIT);
+    } else if let Some((Width(w), Height(h))) = terminal_size() {
+        terminal_width = w as i32;
+        max_lines = h as i32;
     }
 
     let mut listed: HashSet<String> = HashSet::new();
@@ -159,6 +166,14 @@ fn list(tag: &str, with_colors: bool) -> std::io::Result<()> {
 
     notes.sort_by(|a, b| b.cmp(a));
     for note in notes.iter().take(n) {
+        if max_lines <= 0 {
+            break;
+        }
+        // 2 lines for header and footer break
+        max_lines -= 2;
+        for line in note.split('\n') {
+            max_lines -= (line.len() + terminal_width as usize - 1) as i32 / terminal_width;
+        }
         println!("{}", note);
     }
 
