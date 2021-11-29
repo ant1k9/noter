@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use tempfile::NamedTempFile;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Metadata {
     hash: String,
 }
@@ -20,12 +20,6 @@ impl Metadata {
         Metadata {
             hash: rand_string(),
         }
-    }
-}
-
-impl Default for Metadata {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -74,8 +68,8 @@ impl Note {
         }
     }
 
-    pub fn new_from_content(content: String) -> Note {
-        let labels_str = capture_string_by_regex(&content, r"(?m).*Labels: ?.*$", 0);
+    pub fn new_from_content(content: &str) -> Note {
+        let labels_str = capture_string_by_regex(content, r"(?m).*Labels: ?.*$", 0);
         let labels = Regex::new(r"#([\w-]+)")
             .unwrap()
             .captures_iter(&labels_str)
@@ -83,10 +77,10 @@ impl Note {
             .collect::<Vec<String>>();
 
         Note::new(
-            capture_string_by_regex(&content, r"(?m)ID: ?(.*)$", 1),
-            capture_string_by_regex(&content, r"(?m)Title: ?(.*)$", 1),
-            capture_string_by_regex(&content, r"(?ms).*Text: ?(.*)Date:", 1),
-            capture_string_by_regex(&content, r"(?m).*Date: ?(.*)$", 1),
+            capture_string_by_regex(content, r"(?m)ID: ?(.*)$", 1),
+            capture_string_by_regex(content, r"(?m)Title: ?(.*)$", 1),
+            capture_string_by_regex(content, r"(?ms).*Text: ?(.*)Date:", 1),
+            capture_string_by_regex(content, r"(?m).*Date: ?(.*)$", 1),
             labels,
         )
     }
@@ -133,7 +127,7 @@ pub fn read_notes(file: &str) -> Vec<Note> {
     notes
 }
 
-pub fn update_notes_with_content(file: &str, content: String) -> std::io::Result<()> {
+pub fn update_notes_with_content(file: &str, content: &str) -> std::io::Result<()> {
     let note = Note::new_from_content(content);
 
     if !note.title.is_empty() && !note.text.is_empty() {
@@ -167,4 +161,90 @@ fn rand_string() -> String {
         .take(10)
         .map(char::from)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_metadata() {
+        let meta = Metadata::new();
+        assert_eq!(meta.hash.len(), 10);
+    }
+
+    #[test]
+    fn rand_string_is_not_repeated() {
+        let first = rand_string();
+        let second = rand_string();
+
+        assert_eq!(first.len(), second.len());
+        assert_ne!(first, second);
+    }
+
+    #[test]
+    fn capture_string_by_regex_second_values() {
+        let result = capture_string_by_regex("Key = 100", r"(\w+) = (\d+)", 2);
+        assert_eq!(result, "100");
+    }
+
+    #[test]
+    fn make_initial_note() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        initial_note(&mut tmp).unwrap();
+
+        let content = std::fs::read_to_string(tmp.path().to_owned()).unwrap();
+        let note = Note::new_from_content(&content);
+
+        assert!(!note.get_id().is_empty());
+        assert_eq!(
+            note.get_date()[..10],
+            Utc::now().format("%Y-%m-%d").to_string()
+        );
+        assert_eq!(note.get_tags().len(), 0);
+    }
+
+    #[test]
+    fn test_read_notes() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        tmp.write_all(
+            "[
+                {
+                    \"id\": \"iomYID8t2A\",
+                    \"title\": \"Programming thoughts\",
+                    \"text\": \"I created a new tool for notes. Think about improvements in it.\",
+                    \"date\": \"2021-08-14 11:43:30\",
+                    \"labels\": [
+                        \"rust\",
+                        \"programming\"
+                    ]
+                }
+            ]"
+            .as_bytes(),
+        )
+        .unwrap();
+
+        let notes = read_notes(tmp.path().to_str().unwrap());
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].title, "Programming thoughts");
+        assert!(notes[0].has_tag("rust"));
+
+        update_notes_with_content(
+            tmp.path().to_str().unwrap(),
+            "
+            ID: PEg1HdCLos
+            ---
+            Title: Second entry
+            Text: A lot of text...
+            Date: 2021-11-28 18:18:03
+            Labels: #empty #thoughts
+        ",
+        )
+        .unwrap();
+
+        let notes = read_notes(tmp.path().to_str().unwrap());
+        assert_eq!(notes.len(), 2);
+        assert_eq!(notes[1].title, "Second entry");
+        assert!(notes[1].has_tag("thoughts"));
+    }
 }

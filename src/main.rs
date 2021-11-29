@@ -98,7 +98,7 @@ fn edit_and_save(opt: Option<&noter::Note>) -> std::io::Result<()> {
         .expect("editor failed to start");
 
     let content = fs::read_to_string(tmp.path().to_owned())?;
-    noter::update_notes_with_content(DATA_FILE, content)
+    noter::update_notes_with_content(DATA_FILE, &content)
 }
 
 fn init() -> std::io::Result<()> {
