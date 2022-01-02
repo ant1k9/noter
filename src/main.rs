@@ -97,7 +97,7 @@ fn edit_and_save(opt: Option<&noter::Note>) -> std::io::Result<()> {
         .status()
         .expect("editor failed to start");
 
-    let content = fs::read_to_string(tmp.path().to_owned())?;
+    let content = fs::read_to_string(tmp.path())?;
     noter::update_notes_with_content(DATA_FILE, &content)
 }
 
@@ -120,15 +120,19 @@ fn init() -> std::io::Result<()> {
 }
 
 fn get_tags() -> std::io::Result<()> {
-    let mut listed: HashSet<String> = HashSet::new();
+    let mut listed: Vec<String> = Vec::new();
     for note in noter::read_notes(DATA_FILE).iter().rev() {
         for tag in note.get_tags() {
             if listed.contains(tag) {
                 continue;
             }
-            println!("{}", tag);
-            listed.insert(tag.to_owned());
+            listed.push(tag.to_owned());
         }
+    }
+
+    listed.sort();
+    for tag in listed {
+        println!("{}", tag);
     }
 
     Ok(())
@@ -211,14 +215,14 @@ fn main() -> std::io::Result<()> {
         .arg(Arg::new("").takes_value(true))
         .arg(
             Arg::new("tag")
-                .about("filter notes by given tag")
                 .long("--tag")
+                .long_help("filter notes by given tag")
                 .takes_value(true),
         )
         .arg(
             Arg::new("no-colors")
-                .about("show notes without colorizing")
-                .long("--no-colors"),
+                .long("--no-colors")
+                .long_help("show notes without colorizing"),
         )
         .get_matches();
 

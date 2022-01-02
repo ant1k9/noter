@@ -51,7 +51,7 @@ impl Note {
             return format!(
                 "\x1B[38;5;6m[{}]\x1B[39m \x1B[1m{} ({}) \x1B[0m\n\t\x1B[38;5;2m{}\x1B[39m \x1B[38;5;8m#{}\n",
                 self.date, self.title, self.id,
-                self.text.replace("\n", "\n\t"),
+                self.text.replace('\n', "\n\t"),
                 self.labels.join(" #"),
             );
         }
@@ -193,7 +193,7 @@ mod tests {
         let mut tmp = NamedTempFile::new().unwrap();
         initial_note(&mut tmp).unwrap();
 
-        let content = std::fs::read_to_string(tmp.path().to_owned()).unwrap();
+        let content = std::fs::read_to_string(tmp.path()).unwrap();
         let note = Note::new_from_content(&content);
 
         assert!(!note.get_id().is_empty());
