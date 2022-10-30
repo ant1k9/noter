@@ -116,6 +116,11 @@ fn init() -> std::io::Result<()> {
 
     let mut f = File::create(path)?;
     f.write_all(s.as_bytes())?;
+
+    let path = home.join(Path::new(DATA_FILE));
+    f = File::create(path)?;
+    f.write_all("[]".as_bytes())?;
+
     Ok(())
 }
 

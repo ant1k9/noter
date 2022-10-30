@@ -13,3 +13,7 @@ cover:
 		--branch \
 		--ignore-not-existing \
 		-o ./coverage
+
+.PHONY: lint
+lint:
+	@cargo clippy --all-targets --all-features -- -D warnings
