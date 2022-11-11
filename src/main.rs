@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
@@ -27,7 +28,7 @@ fn add_note() -> std::io::Result<()> {
 }
 
 fn compact() -> std::io::Result<()> {
-    let notes = noter::read_notes(DATA_FILE);
+    let notes: Vec<noter::Note> = noter::read_data(DATA_FILE);
     let mut compacted: Vec<noter::Note> = Vec::new();
 
     for note in notes.iter().rev() {
@@ -44,38 +45,45 @@ fn compact() -> std::io::Result<()> {
     }
 
     compacted.reverse();
-    noter::save_notes(DATA_FILE, compacted)
+    noter::save_data(DATA_FILE, compacted)
 }
 
 fn merge() -> std::io::Result<()> {
-    let notes = noter::read_notes(DATA_FILE);
-    let remote_notes = noter::read_notes(REMOTE_DATA_FILE);
-    let mut merged: Vec<noter::Note> = Vec::new();
+    let notes: Vec<noter::Note> = noter::read_data(DATA_FILE);
+    let remote_notes: Vec<noter::Note> = noter::read_data(REMOTE_DATA_FILE);
+    let mut metadata: noter::Metadata = noter::read_data(METADATA_FILE);
+    let last_snapshot = metadata.get_last_snapshot();
 
-    let mut i: usize = 0;
-    let mut j: usize = 0;
-    let k = notes.len() + remote_notes.len();
+    let mut merged: Vec<noter::Note> = notes.to_vec();
+    merged.sort_by_key(|x| x.get_date().to_owned());
+    remote_notes
+        .iter()
+        .filter(|x| x.get_date().cmp(last_snapshot) == Ordering::Greater)
+        .for_each(|x| merged.push(x.clone()));
 
-    while i + j < k {
-        if i == notes.len()
-            || (j < remote_notes.len() && remote_notes[j].get_date() < notes[i].get_date())
-        {
-            merged.push(remote_notes[j].to_owned());
-            j += 1;
-        } else {
-            merged.push(notes[i].to_owned());
-            i += 1;
-        }
+    let mut remote_merged: Vec<noter::Note> = remote_notes.to_vec();
+    remote_merged.sort_by_key(|x| x.get_date().to_owned());
+    notes
+        .iter()
+        .filter(|x| x.get_date().cmp(last_snapshot) == Ordering::Greater)
+        .for_each(|x| remote_merged.push(x.clone()));
+
+    if !notes.is_empty() {
+        merged.sort_by_key(|x| x.get_date().to_owned());
+        metadata.set_last_snapshot(merged[merged.len() - 1].get_date());
+        noter::save_data(METADATA_FILE, metadata)?;
     }
 
-    noter::save_notes(DATA_FILE, merged)?;
+    noter::save_data(DATA_FILE, merged)?;
+    noter::save_data(REMOTE_DATA_FILE, remote_merged)?;
     compact()
 }
 
 fn edit() -> std::io::Result<()> {
     let id: String = env::args().nth(2).unwrap();
 
-    for note in noter::read_notes(DATA_FILE).iter().rev() {
+    let saved_notes: Vec<noter::Note> = noter::read_data(DATA_FILE);
+    for note in saved_notes.iter().rev() {
         if note.get_id() == id {
             return edit_and_save(Some(note));
         }
@@ -126,7 +134,9 @@ fn init() -> std::io::Result<()> {
 
 fn get_tags() -> std::io::Result<()> {
     let mut listed: Vec<String> = Vec::new();
-    for note in noter::read_notes(DATA_FILE).iter().rev() {
+
+    let saved_notes: Vec<noter::Note> = noter::read_data(DATA_FILE);
+    for note in saved_notes.iter().rev() {
         for tag in note.get_tags() {
             if listed.contains(tag) {
                 continue;
@@ -162,7 +172,8 @@ fn list(tag: &str, with_colors: bool) -> std::io::Result<()> {
     let mut listed: HashSet<String> = HashSet::new();
     let mut notes: Vec<String> = Vec::new();
 
-    for note in noter::read_notes(DATA_FILE).iter().rev() {
+    let saved_notes: Vec<noter::Note> = noter::read_data(DATA_FILE);
+    for note in saved_notes.iter().rev() {
         if listed.contains(note.get_id()) {
             continue;
         }
@@ -192,12 +203,13 @@ fn list(tag: &str, with_colors: bool) -> std::io::Result<()> {
 fn remove() -> std::io::Result<()> {
     let id: String = env::args().nth(2).unwrap();
 
-    let notes = noter::read_notes(DATA_FILE)
+    let saved_notes: Vec<noter::Note> = noter::read_data(DATA_FILE);
+    let notes = saved_notes
         .into_iter()
         .filter(|note| note.get_id() != id)
         .collect::<Vec<noter::Note>>();
 
-    noter::save_notes(DATA_FILE, notes)
+    noter::save_data(DATA_FILE, notes)
 }
 
 fn main() -> std::io::Result<()> {

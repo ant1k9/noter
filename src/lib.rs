@@ -6,6 +6,7 @@ use chrono::Utc;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use regex::Regex;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use tempfile::NamedTempFile;
@@ -13,13 +14,26 @@ use tempfile::NamedTempFile;
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Metadata {
     hash: String,
+    last_snapshot: Option<String>,
 }
 
 impl Metadata {
     pub fn new() -> Metadata {
         Metadata {
             hash: rand_string(),
+            last_snapshot: None,
         }
+    }
+
+    pub fn get_last_snapshot(&self) -> &str {
+        match &self.last_snapshot {
+            Some(s) => s,
+            None => "",
+        }
+    }
+
+    pub fn set_last_snapshot(&mut self, date: &str) {
+        self.last_snapshot = Some(date.to_owned());
     }
 }
 
@@ -119,32 +133,32 @@ pub fn show_existed_note(tmp: &mut NamedTempFile, note: &Note) -> std::io::Resul
     Ok(())
 }
 
-pub fn read_notes(file: &str) -> Vec<Note> {
+pub fn read_data<T: DeserializeOwned>(file: &str) -> T {
     let path = home_path().join(Path::new(file));
     let rf = File::open(path).unwrap();
     let reader = BufReader::new(rf);
-    let notes: Vec<Note> = serde_json::from_reader(reader).unwrap();
-    notes
+    let data: T = serde_json::from_reader(reader).unwrap();
+    data
 }
 
 pub fn update_notes_with_content(file: &str, content: &str) -> std::io::Result<()> {
     let note = Note::new_from_content(content);
 
     if !note.title.is_empty() && !note.text.is_empty() {
-        let mut notes = read_notes(file);
+        let mut notes: Vec<Note> = read_data(file);
         notes.push(note);
 
-        save_notes(file, notes)?;
+        save_data(file, notes)?;
     }
 
     Ok(())
 }
 
-pub fn save_notes(file: &str, notes: Vec<Note>) -> std::io::Result<()> {
+pub fn save_data<T: Serialize>(file: &str, data: T) -> std::io::Result<()> {
     let path = home_path().join(Path::new(file));
-    let notes_str = serde_json::to_string_pretty(&notes).unwrap();
+    let data_str = serde_json::to_string_pretty(&data).unwrap();
     let mut wf = File::create(path)?;
-    return wf.write_all(notes_str.as_bytes());
+    return wf.write_all(data_str.as_bytes());
 }
 
 fn capture_string_by_regex(content: &str, expression: &str, index: usize) -> String {
@@ -224,7 +238,7 @@ mod tests {
         )
         .unwrap();
 
-        let notes = read_notes(tmp.path().to_str().unwrap());
+        let notes: Vec<Note> = read_data(tmp.path().to_str().unwrap());
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0].title, "Programming thoughts");
         assert!(notes[0].has_tag("rust"));
@@ -242,7 +256,7 @@ mod tests {
         )
         .unwrap();
 
-        let notes = read_notes(tmp.path().to_str().unwrap());
+        let notes: Vec<Note> = read_data(tmp.path().to_str().unwrap());
         assert_eq!(notes.len(), 2);
         assert_eq!(notes[1].title, "Second entry");
         assert!(notes[1].has_tag("thoughts"));
