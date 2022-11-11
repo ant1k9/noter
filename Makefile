@@ -17,3 +17,12 @@ cover:
 .PHONY: lint
 lint:
 	@cargo clippy --all-targets --all-features -- -D warnings
+
+load:
+	@load-from-dropbox remote.data.json
+	@mv remote.data.json ~/.noter/notes/remote.data.json
+
+backup:
+	@cp ~/.noter/notes/data.json ~/.noter/notes/data.json.bak
+	@noter sync && mv ~/.noter/notes/remote.data.json /tmp
+	@echo /tmp/remote.data.json
