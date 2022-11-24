@@ -17,14 +17,14 @@ const REMOTE_DATA_FILE: &str = ".noter/notes/remote.data.json";
 
 const DEFAULT_LIST_LIMIT: usize = 10;
 
-fn add_note() -> std::io::Result<()> {
+fn add_note(metadata: noter::Metadata) -> std::io::Result<()> {
     let path = noter::home_path().join(Path::new(DATA_FILE));
     if !path.exists() {
         let mut f = File::create(path)?;
         f.write_all(b"[]")?;
     }
 
-    edit_and_save(None)
+    edit_and_save(None, metadata)
 }
 
 fn compact() -> std::io::Result<()> {
@@ -48,10 +48,9 @@ fn compact() -> std::io::Result<()> {
     noter::save_data(DATA_FILE, compacted)
 }
 
-fn merge() -> std::io::Result<()> {
+fn merge(mut metadata: noter::Metadata) -> std::io::Result<()> {
     let notes: Vec<noter::Note> = noter::read_data(DATA_FILE);
     let remote_notes: Vec<noter::Note> = noter::read_data(REMOTE_DATA_FILE);
-    let mut metadata: noter::Metadata = noter::read_data(METADATA_FILE);
     let last_snapshot = metadata.get_last_snapshot();
 
     let mut merged: Vec<noter::Note> = notes.to_vec();
@@ -79,25 +78,25 @@ fn merge() -> std::io::Result<()> {
     compact()
 }
 
-fn edit() -> std::io::Result<()> {
+fn edit(metadata: noter::Metadata) -> std::io::Result<()> {
     let id: String = env::args().nth(2).unwrap();
 
     let saved_notes: Vec<noter::Note> = noter::read_data(DATA_FILE);
     for note in saved_notes.iter().rev() {
         if note.get_id() == id {
-            return edit_and_save(Some(note));
+            return edit_and_save(Some(note), metadata);
         }
     }
 
     Ok(())
 }
 
-fn edit_and_save(opt: Option<&noter::Note>) -> std::io::Result<()> {
+fn edit_and_save(opt: Option<&noter::Note>, metadata: noter::Metadata) -> std::io::Result<()> {
     let mut tmp = NamedTempFile::new()?;
 
     match opt {
         Some(note) => noter::show_existed_note(&mut tmp, note)?,
-        None => noter::initial_note(&mut tmp)?,
+        None => noter::initial_note(&mut tmp, metadata.get_hash())?,
     }
 
     Command::new("vim")
@@ -106,7 +105,7 @@ fn edit_and_save(opt: Option<&noter::Note>) -> std::io::Result<()> {
         .expect("editor failed to start");
 
     let content = fs::read_to_string(tmp.path())?;
-    noter::update_notes_with_content(DATA_FILE, &content)
+    noter::update_notes_with_content(DATA_FILE, &content, metadata.get_hash())
 }
 
 fn init() -> std::io::Result<()> {
@@ -221,9 +220,8 @@ fn main() -> std::io::Result<()> {
                 .about("edit a note (needs a hash as an argument)")
                 .arg(Arg::new("").takes_value(true)),
         )
-        .subcommand(App::new("init").about("initialize folders and directories for noter"))
         .subcommand(
-            App::new("remove")
+            App::new("rm")
                 .about("remove a note (needs a hash as an argument)")
                 .arg(Arg::new("").takes_value(true)),
         )
@@ -243,18 +241,22 @@ fn main() -> std::io::Result<()> {
         )
         .get_matches();
 
+    if !noter::path_exists(METADATA_FILE) {
+        init()?;
+    }
+
+    let metadata: noter::Metadata = noter::read_data(METADATA_FILE);
+
     if matches.subcommand_matches("compact").is_some() {
         compact()?;
     } else if matches.subcommand_matches("edit").is_some() {
-        edit()?;
-    } else if matches.subcommand_matches("init").is_some() {
-        init()?;
+        edit(metadata)?;
     } else if matches.subcommand_matches("add").is_some() {
-        add_note()?;
+        add_note(metadata)?;
     } else if matches.subcommand_matches("rm").is_some() {
         remove()?;
     } else if matches.subcommand_matches("sync").is_some() {
-        merge()?;
+        merge(metadata)?;
     } else if matches.subcommand_matches("tags").is_some() {
         get_tags()?;
     } else {

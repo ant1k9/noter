@@ -32,6 +32,10 @@ impl Metadata {
         }
     }
 
+    pub fn get_hash(&self) -> &str {
+        &self.hash
+    }
+
     pub fn set_last_snapshot(&mut self, date: &str) {
         self.last_snapshot = Some(date.to_owned());
     }
@@ -40,6 +44,7 @@ impl Metadata {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Note {
     id: String,
+    instance: String,
     title: String,
     text: String,
     date: String,
@@ -72,9 +77,17 @@ impl Note {
         format!("[{}] {}\n  {}\n", self.date, self.title, self.text,)
     }
 
-    pub fn new(id: String, title: String, text: String, date: String, labels: Vec<String>) -> Note {
+    pub fn new(
+        id: String,
+        instance: String,
+        title: String,
+        text: String,
+        date: String,
+        labels: Vec<String>,
+    ) -> Note {
         Note {
             id,
+            instance,
             title,
             text,
             date,
@@ -82,7 +95,7 @@ impl Note {
         }
     }
 
-    pub fn new_from_content(content: &str) -> Note {
+    pub fn new_from_content(content: &str, instance: &str) -> Note {
         let labels_str = capture_string_by_regex(content, r"(?m).*Labels: ?.*$", 0);
         let labels = Regex::new(r"#([\w-]+)")
             .unwrap()
@@ -92,6 +105,7 @@ impl Note {
 
         Note::new(
             capture_string_by_regex(content, r"(?m)ID: ?(.*)$", 1),
+            instance.to_owned(),
             capture_string_by_regex(content, r"(?m)Title: ?(.*)$", 1),
             capture_string_by_regex(content, r"(?ms).*Text: ?(.*)Date:", 1),
             capture_string_by_regex(content, r"(?m).*Date: ?(.*)$", 1),
@@ -104,12 +118,17 @@ pub fn home_path() -> PathBuf {
     dirs::home_dir().unwrap()
 }
 
-pub fn initial_note(tmp: &mut NamedTempFile) -> std::io::Result<()> {
+pub fn path_exists(path: &str) -> bool {
+    home_path().join(Path::new(path)).is_file()
+}
+
+pub fn initial_note(tmp: &mut NamedTempFile, instance: &str) -> std::io::Result<()> {
     let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
     show_existed_note(
         tmp,
         &Note::new(
             rand_string(),
+            instance.to_owned(),
             "".to_string(),
             "".to_string(),
             now,
@@ -141,8 +160,8 @@ pub fn read_data<T: DeserializeOwned>(file: &str) -> T {
     data
 }
 
-pub fn update_notes_with_content(file: &str, content: &str) -> std::io::Result<()> {
-    let note = Note::new_from_content(content);
+pub fn update_notes_with_content(file: &str, content: &str, instance: &str) -> std::io::Result<()> {
+    let note = Note::new_from_content(content, instance);
 
     if !note.title.is_empty() && !note.text.is_empty() {
         let mut notes: Vec<Note> = read_data(file);
@@ -205,10 +224,10 @@ mod tests {
     #[test]
     fn make_initial_note() {
         let mut tmp = NamedTempFile::new().unwrap();
-        initial_note(&mut tmp).unwrap();
+        initial_note(&mut tmp, "instance").unwrap();
 
         let content = std::fs::read_to_string(tmp.path()).unwrap();
-        let note = Note::new_from_content(&content);
+        let note = Note::new_from_content(&content, "instance");
 
         assert!(!note.get_id().is_empty());
         assert_eq!(
@@ -225,6 +244,7 @@ mod tests {
             "[
                 {
                     \"id\": \"iomYID8t2A\",
+                    \"instance\": \"instance\",
                     \"title\": \"Programming thoughts\",
                     \"text\": \"I created a new tool for notes. Think about improvements in it.\",
                     \"date\": \"2021-08-14 11:43:30\",
@@ -253,12 +273,14 @@ mod tests {
             Date: 2021-11-28 18:18:03
             Labels: #empty #thoughts
         ",
+            "instance",
         )
         .unwrap();
 
         let notes: Vec<Note> = read_data(tmp.path().to_str().unwrap());
         assert_eq!(notes.len(), 2);
         assert_eq!(notes[1].title, "Second entry");
+        assert_eq!(notes[1].instance, "instance");
         assert!(notes[1].has_tag("thoughts"));
     }
 }

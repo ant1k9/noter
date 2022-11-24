@@ -1,4 +1,4 @@
-set -l _noter_commands add compact edit help init rm sync
+set -l _noter_commands add compact edit help rm sync
 set -l _noter_edit_commands edit rm
 
 function _noter_note_ids
@@ -24,11 +24,6 @@ complete -f -c noter \
     -n "not __fish_seen_subcommand_from $_noter_commands" \
     -a help \
     -d "Print this message or the help of the given subcommand(s)"
-
-complete -f -c noter \
-    -n "not __fish_seen_subcommand_from $_noter_commands" \
-    -a init \
-    -d "initialize folders and directories for noter"
 
 complete -f -c noter \
     -n "not __fish_seen_subcommand_from $_noter_commands" \
