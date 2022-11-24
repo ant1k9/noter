@@ -1,5 +1,5 @@
-set -l _noter_commands add compact edit help init remove sync
-set -l _noter_edit_commands edit remove
+set -l _noter_commands add compact edit help init rm sync
+set -l _noter_edit_commands edit rm
 
 function _noter_note_ids
     noter 100 | grep -Eo '(\([A-Za-z0-9]{10}\))' | tr -d '()'
@@ -32,7 +32,7 @@ complete -f -c noter \
 
 complete -f -c noter \
     -n "not __fish_seen_subcommand_from $_noter_commands" \
-    -a remove \
+    -a rm \
     -d "remove a note (needs a hash as an argument)"
 
 complete -f -c noter \

@@ -251,7 +251,7 @@ fn main() -> std::io::Result<()> {
         init()?;
     } else if matches.subcommand_matches("add").is_some() {
         add_note()?;
-    } else if matches.subcommand_matches("remove").is_some() {
+    } else if matches.subcommand_matches("rm").is_some() {
         remove()?;
     } else if matches.subcommand_matches("sync").is_some() {
         merge()?;
