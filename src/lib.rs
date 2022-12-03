@@ -32,7 +32,7 @@ impl Metadata {
         }
     }
 
-    pub fn get_hash(&self) -> &str {
+    pub fn get_instance(&self) -> &str {
         &self.hash
     }
 
@@ -54,6 +54,9 @@ pub struct Note {
 impl Note {
     pub fn get_id(&self) -> &str {
         &self.id
+    }
+    pub fn get_instance(&self) -> &str {
+        &self.instance
     }
     pub fn get_date(&self) -> &str {
         &self.date

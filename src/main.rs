@@ -57,8 +57,24 @@ fn merge(mut metadata: noter::Metadata) -> std::io::Result<()> {
     merged.sort_by_key(|x| x.get_date().to_owned());
     remote_notes
         .iter()
-        .filter(|x| x.get_date().cmp(last_snapshot) == Ordering::Greater)
+        .filter(|x| {
+            x.get_date().cmp(last_snapshot) == Ordering::Greater
+                || (x.get_instance() != metadata.get_instance()
+                    && !notes.iter().any(|note| note.get_id() == x.get_id()))
+        })
         .for_each(|x| merged.push(x.clone()));
+    merged = merged
+        .iter()
+        .filter_map(|x| {
+            if remote_notes.iter().any(|note| {
+                note.get_instance() == metadata.get_instance() || note.get_id() == x.get_id()
+            }) {
+                Some(x.to_owned())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
 
     let mut remote_merged: Vec<noter::Note> = remote_notes.to_vec();
     remote_merged.sort_by_key(|x| x.get_date().to_owned());
@@ -66,6 +82,18 @@ fn merge(mut metadata: noter::Metadata) -> std::io::Result<()> {
         .iter()
         .filter(|x| x.get_date().cmp(last_snapshot) == Ordering::Greater)
         .for_each(|x| remote_merged.push(x.clone()));
+    remote_merged = remote_merged
+        .iter()
+        .filter_map(|x| {
+            if x.get_instance() != metadata.get_instance()
+                || notes.iter().any(|note| note.get_id() == x.get_id())
+            {
+                Some(x.to_owned())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
 
     if !notes.is_empty() {
         merged.sort_by_key(|x| x.get_date().to_owned());
@@ -96,7 +124,7 @@ fn edit_and_save(opt: Option<&noter::Note>, metadata: noter::Metadata) -> std::i
 
     match opt {
         Some(note) => noter::show_existed_note(&mut tmp, note)?,
-        None => noter::initial_note(&mut tmp, metadata.get_hash())?,
+        None => noter::initial_note(&mut tmp, metadata.get_instance())?,
     }
 
     Command::new("vim")
@@ -105,7 +133,7 @@ fn edit_and_save(opt: Option<&noter::Note>, metadata: noter::Metadata) -> std::i
         .expect("editor failed to start");
 
     let content = fs::read_to_string(tmp.path())?;
-    noter::update_notes_with_content(DATA_FILE, &content, metadata.get_hash())
+    noter::update_notes_with_content(DATA_FILE, &content, metadata.get_instance())
 }
 
 fn init() -> std::io::Result<()> {
@@ -146,7 +174,7 @@ fn get_tags() -> std::io::Result<()> {
 
     listed.sort();
     for tag in listed {
-        println!("{}", tag);
+        println!("{tag}");
     }
 
     Ok(())
@@ -193,7 +221,7 @@ fn list(tag: &str, with_colors: bool) -> std::io::Result<()> {
         for line in note.split('\n') {
             max_lines -= (line.len() + terminal_width as usize - 1) as i32 / terminal_width;
         }
-        println!("{}", note);
+        println!("{note}");
     }
 
     Ok(())
