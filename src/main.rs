@@ -63,18 +63,11 @@ fn merge(mut metadata: noter::Metadata) -> std::io::Result<()> {
                     && !notes.iter().any(|note| note.get_id() == x.get_id()))
         })
         .for_each(|x| merged.push(x.clone()));
-    merged = merged
-        .iter()
-        .filter_map(|x| {
-            if remote_notes.iter().any(|note| {
-                note.get_instance() == metadata.get_instance() || note.get_id() == x.get_id()
-            }) {
-                Some(x.to_owned())
-            } else {
-                None
-            }
+    merged.retain(|x| {
+        remote_notes.iter().any(|note| {
+            note.get_instance() == metadata.get_instance() || note.get_id() == x.get_id()
         })
-        .collect::<Vec<_>>();
+    });
 
     let mut remote_merged: Vec<noter::Note> = remote_notes.to_vec();
     remote_merged.sort_by_key(|x| x.get_date().to_owned());
@@ -82,18 +75,10 @@ fn merge(mut metadata: noter::Metadata) -> std::io::Result<()> {
         .iter()
         .filter(|x| x.get_date().cmp(last_snapshot) == Ordering::Greater)
         .for_each(|x| remote_merged.push(x.clone()));
-    remote_merged = remote_merged
-        .iter()
-        .filter_map(|x| {
-            if x.get_instance() != metadata.get_instance()
-                || notes.iter().any(|note| note.get_id() == x.get_id())
-            {
-                Some(x.to_owned())
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
+    remote_merged.retain(|x| {
+        x.get_instance() != metadata.get_instance()
+            || notes.iter().any(|note| note.get_id() == x.get_id())
+    });
 
     if !notes.is_empty() {
         merged.sort_by_key(|x| x.get_date().to_owned());
